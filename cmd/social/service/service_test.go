@@ -1,30 +1,38 @@
 package service
 
 import (
-	"fmt"
-	"io/ioutil"
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/kr/text"
 )
 
-func TestCreat(t *testing.T) {
-	var s Servic
-	srv:=httptest.NewServer(http.HandlerFunc(s.Create))
+func TestServer_Create_Error(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/create", bytes.NewBufferString(`asd`))
+	s := &Server{}
 
-	rasp,err:=http.Post(srv.URL)
-	if eer!=nil {
-		fmt.Println(err)
-	}
-	textBytes,err:=ioutil.ReadAll(rasp.Body)
-	if err!=nil {
-		fmt.Println(err)
-	}
+	s.Create(w, r)
 
-	text:=string(textBytes)
-	if text !=`{"name":"Aleksander","age":33,"friends":[]}`"{
+	if w.Code != http.StatusInternalServerError {
+		t.Fail()
+	}
+	if w.Body.String() != "invalid character 'a' looking for beginning of value" {
+		t.Fail()
+	}
+}
+
+func TestServer_Create_Ok(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/create", bytes.NewBufferString(`{"name": "bunin", "age": 42}`))
+	s := &Server{}
+
+	s.Create(w, r)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fail()
+	}
+	if w.Body.String() != "invalid character 'a' looking for beginning of value" {
 		t.Fail()
 	}
 }
