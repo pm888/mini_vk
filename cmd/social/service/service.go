@@ -1,7 +1,7 @@
 package service
 
 import (
-	//go:generate mockgen -source=service.go -destination=mocks/mock.go
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,12 +16,11 @@ type Service struct {
 	Store map[int]*users.User
 }
 type Server struct {
+	S *sql.DB
 }
 
-var Counter int = 1
-
 func (s *Server) Create(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
+	if r.Method == http.MethodPost {
 		content, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -29,6 +28,7 @@ func (s *Server) Create(w http.ResponseWriter, r *http.Request) {
 
 			return
 		}
+
 		defer r.Body.Close()
 		var u users.User
 		if err := json.Unmarshal(content, &u); err != nil {
@@ -39,12 +39,9 @@ func (s *Server) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		u.ID = Counter
-		// storage.Put(&u)  - add into map
-		sqlservice.AddSQl(&u) // add into sql
-		Counter++
+		id := sqlservice.AddSQl(&u, s.S)
 
-		strID := strconv.Itoa(u.ID)
+		strID := strconv.Itoa(id)
 
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte("ID:" + strID))
@@ -53,18 +50,8 @@ func (s *Server) Create(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-// func (s *Server) GetAll(w http.ResponseWriter, r *http.Request) {
-// 	if r.Method == "GET" {
-// 		respons := storage.GetAll()
-// 		w.WriteHeader(http.StatusOK)      getall into map
-// 		w.Write([]byte(respons))
-
-// 	}
-// 	w.WriteHeader(http.StatusBadRequest)
-// }
-
 func (s *Server) Make_friends(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
+	if r.Method == http.MethodPost {
 		content, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -83,8 +70,7 @@ func (s *Server) Make_friends(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// friends1, friends2 := storage.Make_friends(f.SourceFriends, f.TargetFriends) - make friends map
-		friends1, friends2 := sqlservice.Make_friends_SQL(f.SourceFriends, f.TargetFriends) // make friends mySQL
+		friends1, friends2 := sqlservice.Make_friends_SQL(f.SourceFriends, f.TargetFriends, s.S)
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(friends1 + " " + "and" + " " + friends2 + " " + "friends now"))
@@ -115,8 +101,7 @@ func (s *Server) Delet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//namedel := storage.Delet(d.UserIDToDelete) - delete into map
-		namedel := sqlservice.Delete_SQL(d.UserIDToDelete) // - delete into mySQL
+		namedel := sqlservice.Delete_SQL(d.UserIDToDelete, s.S)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(namedel + " " + "Delet"))
 
@@ -127,7 +112,7 @@ func (s *Server) Delet(w http.ResponseWriter, r *http.Request) {
 func (s *Server) GetFriends(w http.ResponseWriter, r *http.Request) {
 	name := ""
 	friends := ""
-	if r.Method == "GET" {
+	if r.Method == http.MethodGet {
 		pathUrlString := r.URL.Path
 		proverka := strings.LastIndex(pathUrlString, "/")
 		if proverka != -1 {
@@ -136,8 +121,8 @@ func (s *Server) GetFriends(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				fmt.Println(err)
 
-			} // name, ff := storage.GetFriends(newStrInt) - map
-			friends, name = sqlservice.GetFriends_SQL(newStrInt)
+			}
+			friends, name = sqlservice.GetFriends_SQL(newStrInt, s.S)
 
 			w.Write([]byte(name + " " + "Friends - " + " " + friends))
 		}
@@ -146,7 +131,7 @@ func (s *Server) GetFriends(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ReplacementAge1(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "PUT" {
+	if r.Method == http.MethodPut {
 		pathUrlString := r.URL.Path
 		proverka := strings.LastIndex(pathUrlString, "/")
 		if proverka != -1 {
@@ -171,8 +156,7 @@ func (s *Server) ReplacementAge1(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				//name := storage.ReplacementAge(newStrInt, newAge.NewAge)- map
-				name := sqlservice.ReplacementAgeSQL(newStrInt, newAge.NewAge)
+				name := sqlservice.ReplacementAgeSQL(newStrInt, newAge.NewAge, s.S)
 
 				w.Write([]byte("Age" + " " + name + " " + "changed"))
 			}
@@ -183,9 +167,8 @@ func (s *Server) ReplacementAge1(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) RegisterHandlers() {
 	http.HandleFunc("/create", s.Create)
-	// http.HandleFunc("/get", s.GetAll) - map
 	http.HandleFunc("/make_friends", s.Make_friends)
-	http.HandleFunc("/delet", s.Delet)
+	http.HandleFunc("/delete", s.Delet)
 	http.HandleFunc("/", s.ReplacementAge1)
 	http.HandleFunc("/friends/", s.GetFriends)
 }

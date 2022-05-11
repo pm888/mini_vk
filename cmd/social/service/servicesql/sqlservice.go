@@ -8,40 +8,35 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-const (
-	NAME     = "root"
-	PASSWORD = "qwerty123"
-	HOSTNAME = "127.0.0.1:3306"
-	DBNAME   = "BDusers"
-)
-
-func dsn(dbName string) string {
-	return fmt.Sprintf("%s:%s@tcp(%s)/%s", NAME, PASSWORD, HOSTNAME, DBNAME)
-}
-
-func AddSQl(u *users.User) {
-	db, err := sql.Open("mysql", dsn(""))
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Printf("User-%s,created\n", u.Name)
-
-	defer db.Close()
+func AddSQl(u *users.User, db *sql.DB) (idReturn int) {
 	result, err := db.Query("INSERT INTO users VALUES (?,?,?)", u.ID, u.Name, u.Age)
 	if err != nil {
 		fmt.Println(err)
+	} else {
+		result.Close()
 	}
-	defer result.Close()
+	results1, err := db.Query("SELECT id,user,age FROM users")
+	if err != nil {
+		panic(err.Error())
+
+	}
+	for results1.Next() {
+		var id, age int
+		var name string
+		err = results1.Scan(&id, &name, &age)
+		if err != nil {
+			panic(err.Error())
+		}
+		if name == u.Name && age == u.Age {
+			idReturn = id
+		}
+	}
+
+	return
 }
 
-func Make_friends_SQL(id1, id2 int) (string, string) {
+func Make_friends_SQL(id1 int, id2 int, db *sql.DB) (string, string) {
 	var friends1, friends2 string
-	db, err := sql.Open("mysql", "root:qwerty123@tcp(127.0.0.1:3306)/BDusers")
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer db.Close()
-
 	result, err := db.Query("INSERT INTO friends VALUES (?,?)", id1, id2)
 	if err != nil {
 		fmt.Println(err)
@@ -79,13 +74,7 @@ func Make_friends_SQL(id1, id2 int) (string, string) {
 
 }
 
-func Delete_SQL(idDelete int) string {
-	db, err := sql.Open("mysql", "root:qwerty123@tcp(127.0.0.1:3306)/BDusers")
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer db.Close()
-
+func Delete_SQL(idDelete int, db *sql.DB) string {
 	var nameDel string
 
 	results1, err := db.Query("SELECT id,user FROM users")
@@ -123,15 +112,10 @@ func Delete_SQL(idDelete int) string {
 
 }
 
-func GetFriends_SQL(idUSER int) (string, string) {
+func GetFriends_SQL(idUSER int, db *sql.DB) (string, string) {
 	var nameDD string
 
 	var st string
-	db, err := sql.Open("mysql", "root:qwerty123@tcp(127.0.0.1:3306)/BDusers")
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer db.Close()
 
 	results1, err := db.Query("SELECT id,user FROM users")
 	if err != nil {
@@ -167,13 +151,8 @@ func GetFriends_SQL(idUSER int) (string, string) {
 	return st, nameDD
 }
 
-func ReplacementAgeSQL(nID int, newAge int) string {
+func ReplacementAgeSQL(nID int, newAge int, db *sql.DB) string {
 	var nameDD string
-	db, err := sql.Open("mysql", "root:qwerty123@tcp(127.0.0.1:3306)/BDusers")
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer db.Close()
 
 	results1, err := db.Query("SELECT id,user FROM users")
 	if err != nil {
